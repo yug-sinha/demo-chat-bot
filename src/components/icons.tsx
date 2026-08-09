@@ -107,6 +107,27 @@ export function FolderFilesIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+export function EyeIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+export function EyeOffIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10.6 6.1A9.3 9.3 0 0 1 12 6c6 0 9.5 6 9.5 6a15 15 0 0 1-2.4 3M6.2 7.7A15 15 0 0 0 2.5 12S6 18 12 18a9 9 0 0 0 3.8-.8M4 4l16 16"
+      />
+    </svg>
+  );
+}
+
 export function ChatBubbleIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
