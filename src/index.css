@@ -20,3 +20,39 @@ body {
   background-color: theme("colors.slate.300");
   border-radius: 9999px;
 }
+
+/*
+ * Markdown code styling for chat messages. @tailwindcss/typography targets
+ * elements with zero-specificity :where() selectors, so these plain rules win.
+ * Fenced code blocks: dark surface + light text. Inline code: light chip + dark
+ * text. This avoids the light-on-light (invisible) code that the prose-code
+ * utilities produced.
+ */
+.prose pre {
+  background-color: #0f172a; /* slate-900 */
+  color: #e2e8f0; /* slate-200 */
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+.prose pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  font-weight: 400;
+  font-size: 0.85em;
+  white-space: pre;
+}
+.prose :not(pre) > code {
+  background-color: #f1f5f9; /* slate-100 */
+  color: #0f172a; /* slate-900 */
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.3rem;
+  font-weight: 500;
+  font-size: 0.85em;
+}
+/* Remove the backtick quotes the typography plugin adds around inline code. */
+.prose :not(pre) > code::before,
+.prose :not(pre) > code::after {
+  content: "";
+}

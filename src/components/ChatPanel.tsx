@@ -13,11 +13,11 @@ import {
   XIcon,
 } from "./icons";
 
+// Code element styling lives in index.css (see the `.prose pre` / inline-code
+// rules) because stacked prose-* variants for nested `pre code` are unreliable.
 const PROSE_CLASSES =
-  "prose prose-sm max-w-none prose-p:my-1.5 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-1.5 " +
-  "prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-pre:bg-slate-900 prose-pre:text-slate-100 " +
-  "prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none " +
-  "prose-pre:prose-code:bg-transparent prose-pre:prose-code:p-0 prose-a:text-indigo-600";
+  "prose prose-sm max-w-none prose-p:my-1.5 prose-p:leading-relaxed prose-headings:mt-3 " +
+  "prose-headings:mb-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-a:text-indigo-600";
 
 export default function ChatPanel({ projectId }: { projectId: number }) {
   const [messages, setMessages] = useState<Message[]>([]);
