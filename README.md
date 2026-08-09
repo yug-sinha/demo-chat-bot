@@ -7,6 +7,8 @@ Stack: **React + Vite + TypeScript** (frontend), **FastAPI** (backend), **Postgr
 (storage), **JWT** (auth), **Google Gemini API** (LLM + file uploads). Deployed as a single Vercel
 project — frontend served statically, backend as Python serverless functions under `/api`.
 
+**Live demo:** https://demo-chat-bot-phi.vercel.app
+
 ## Architecture at a glance
 
 ```mermaid
@@ -54,7 +56,7 @@ Deliverables checklist from the brief:
 | Source code in a GitHub repository | ✅ [github.com/yug-sinha/demo-chat-bot](https://github.com/yug-sinha/demo-chat-bot) |
 | Instructions to run the application (README) | ✅ This file |
 | Brief architecture/design explanation | ✅ `ARCHITECTURE.md` |
-| Publicly hosted working demo | ⏳ Not yet deployed |
+| Publicly hosted working demo | ✅ [demo-chat-bot-phi.vercel.app](https://demo-chat-bot-phi.vercel.app) |
 | Demo recording | ⏳ Not yet recorded |
 
 ## Project structure
