@@ -115,6 +115,7 @@ the same-origin production deployment behaves.
 | GET/POST | `/api/projects/{id}/prompts` | View/set the active system prompt |
 | GET | `/api/projects/{id}/messages` | Chat history |
 | POST | `/api/projects/{id}/chat` | Send a message (optionally with `file_ids`), get the agent's reply |
+| POST | `/api/projects/{id}/chat/stream` | Same as above but streams the reply token-by-token over SSE |
 | GET/POST | `/api/projects/{id}/files` | List/upload files (Gemini Files API) — surfaced in the chat UI via the attach button, not a separate page |
 
 All routes except `/register`, `/login`, and `/health` require `Authorization: Bearer <token>`.

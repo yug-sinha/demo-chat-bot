@@ -49,3 +49,63 @@ export const api = {
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
+
+// A single Server-Sent Event from the chat stream.
+export type StreamEvent =
+  | { type: "user_message"; message: unknown }
+  | { type: "delta"; text: string }
+  | { type: "done"; message: unknown }
+  | { type: "error"; detail: string };
+
+/**
+ * POST to an SSE endpoint and invoke `onEvent` for each parsed event as it
+ * arrives. Resolves when the stream ends. Throws ApiError on a non-2xx status.
+ */
+export async function postStream(
+  path: string,
+  body: unknown,
+  onEvent: (event: StreamEvent) => void
+): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`/api${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok || !res.body) {
+    let detail = res.statusText;
+    try {
+      detail = (await res.json()).detail || detail;
+    } catch {
+      // no JSON body
+    }
+    throw new ApiError(res.status, detail);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE events are separated by a blank line.
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+    for (const evt of events) {
+      const dataLine = evt.split("\n").find((l) => l.startsWith("data:"));
+      if (!dataLine) continue;
+      try {
+        onEvent(JSON.parse(dataLine.slice(5).trim()) as StreamEvent);
+      } catch {
+        // ignore malformed / unknown event
+      }
+    }
+  }
+}

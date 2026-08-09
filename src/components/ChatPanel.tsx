@@ -1,8 +1,8 @@
 import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { api, ApiError } from "../api/client";
-import { ChatResponse, Message, ProjectFile } from "../lib/types";
+import { api, ApiError, postStream } from "../api/client";
+import { Message, ProjectFile } from "../lib/types";
 import {
   FileIcon,
   FolderFilesIcon,
@@ -24,6 +24,7 @@ export default function ChatPanel({ projectId }: { projectId: number }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [streamingId, setStreamingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [existingFiles, setExistingFiles] = useState<ProjectFile[]>([]);
@@ -91,7 +92,7 @@ export default function ChatPanel({ projectId }: { projectId: number }) {
   async function handleSend(e: FormEvent) {
     e.preventDefault();
     const text = input.trim();
-    if (!text) return;
+    if (!text || sending) return;
 
     const attachedFiles = pendingFiles;
     setInput("");
@@ -101,27 +102,55 @@ export default function ChatPanel({ projectId }: { projectId: number }) {
     setSending(true);
     requestAnimationFrame(autoResize);
 
-    const optimistic: Message = {
-      id: Date.now(),
+    // Optimistically render the user's message plus an empty assistant bubble
+    // that fills in as tokens stream. Temp ids are swapped for real ones on
+    // the user_message / done events.
+    const tempUserId = Date.now();
+    const tempAssistantId = tempUserId + 1;
+    const optimisticUser: Message = {
+      id: tempUserId,
       role: "user",
       content: text,
       attachments: attachedFiles.map((f) => f.filename),
       created_at: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, optimistic]);
+    const streamingAssistant: Message = {
+      id: tempAssistantId,
+      role: "assistant",
+      content: "",
+      attachments: [],
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticUser, streamingAssistant]);
+    setStreamingId(tempAssistantId);
 
     try {
-      const res = await api.post<ChatResponse>(`/projects/${projectId}/chat`, {
-        message: text,
-        file_ids: attachedFiles.map((f) => f.id),
-      });
-      setMessages((prev) => [...prev.slice(0, -1), res.user_message, res.assistant_message]);
+      await postStream(
+        `/projects/${projectId}/chat/stream`,
+        { message: text, file_ids: attachedFiles.map((f) => f.id) },
+        (evt) => {
+          if (evt.type === "user_message") {
+            const real = evt.message as Message;
+            setMessages((prev) => prev.map((m) => (m.id === tempUserId ? real : m)));
+          } else if (evt.type === "delta") {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === tempAssistantId ? { ...m, content: m.content + evt.text } : m))
+            );
+          } else if (evt.type === "done") {
+            const real = evt.message as Message;
+            setMessages((prev) => prev.map((m) => (m.id === tempAssistantId ? real : m)));
+          } else if (evt.type === "error") {
+            throw new ApiError(502, evt.detail);
+          }
+        }
+      );
     } catch (err) {
-      setMessages((prev) => prev.slice(0, -1));
+      setMessages((prev) => prev.filter((m) => m.id !== tempUserId && m.id !== tempAssistantId));
       setInput(text);
       setPendingFiles(attachedFiles);
       setError(err instanceof ApiError ? err.message : "Failed to send message.");
     } finally {
+      setStreamingId(null);
       setSending(false);
     }
   }
@@ -173,20 +202,20 @@ export default function ChatPanel({ projectId }: { projectId: number }) {
                   <div key={m.id} className="flex items-start gap-3">
                     <LogoMark className="mt-0.5 h-6 w-6 shrink-0" />
                     <div className={`${PROSE_CLASSES} min-w-0 flex-1 text-slate-800`}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                      {m.id === streamingId && m.content === "" ? (
+                        <div className="flex items-center gap-1 py-1.5">
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300 [animation-delay:-0.3s]" />
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300 [animation-delay:-0.15s]" />
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300" />
+                        </div>
+                      ) : (
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {m.id === streamingId ? m.content + " ▍" : m.content}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   </div>
                 )
-              )}
-              {sending && (
-                <div className="flex items-center gap-3">
-                  <LogoMark className="h-6 w-6 shrink-0" />
-                  <div className="flex items-center gap-1 py-1.5">
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300 [animation-delay:-0.3s]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300 [animation-delay:-0.15s]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300" />
-                  </div>
-                </div>
               )}
             </div>
           )}

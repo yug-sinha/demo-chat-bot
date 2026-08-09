@@ -72,9 +72,12 @@ existing ones. The LLM provider is isolated behind `gemini_client.py`, so swappi
 OpenRouter later touches one file. SQLAlchemy models abstract the DB, so schema changes are
 additive migrations rather than app-wide rewrites.
 
-**Performance** — Chat history sent to the model is capped (last 20 turns) to bound both latency
-and token cost as conversations grow. The frontend applies optimistic UI updates for sent
-messages so the interface feels responsive even while waiting on the LLM round trip.
+**Performance** — Chat replies are **streamed** token-by-token over Server-Sent Events
+(`POST /chat/stream`), so the user sees output begin within a second instead of waiting for the
+full response. The backend uses Gemini's `generate_content_stream` and emits SSE `delta` events via
+a FastAPI `StreamingResponse`; the assistant message is persisted once the stream completes. Chat
+history sent to the model is capped (last 20 turns) to bound latency and token cost as
+conversations grow. The frontend also applies optimistic UI updates for sent messages.
 
 **Reliability** — LLM and DB errors are caught and turned into clear HTTP error responses instead
 of crashing the process; a failed chat call doesn't lose the user's already-saved message. The app
@@ -87,10 +90,10 @@ rather than silent.
 - **No refresh tokens** — access tokens are long-lived (24h default) rather than short-lived with
   a refresh flow. Simpler for a minimal platform; would add revocation support first if extending
   this toward production.
-- **No streaming responses** — chat replies are returned as a single JSON response rather than
-  streamed token-by-token. Serverless Python streaming on Vercel is inconsistent, so a blocking
-  call was chosen for reliability; SSE/streaming is a natural extension once the backend runs on a
-  platform with first-class streaming support.
+- **Streaming persists only on completion** — the streamed assistant reply is written to the
+  database once, after the stream finishes. If the connection drops mid-stream the partial text
+  isn't saved (the user message always is). A blocking `POST /chat` endpoint is also kept as a
+  fallback. Verified that Vercel's Fluid Compute flushes the SSE incrementally rather than buffering.
 - **No rate limiting** — out of scope for a minimal assignment; would add per-user request
   throttling before any real deployment.
 - **Schema managed via `create_all`, not migrations** — fine for this scope; Alembic would be
