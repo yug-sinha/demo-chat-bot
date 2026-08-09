@@ -2,11 +2,38 @@
 
 ## Overview
 
-```
-Browser ──> React (Vite) ──same origin, relative /api/*──> FastAPI (serverless function)
-                                                                  │
-                                                                  ├─> Postgres (SQLAlchemy ORM)
-                                                                  └─> Gemini API (chat + files)
+```mermaid
+flowchart LR
+    subgraph Client["Browser"]
+        UI["React SPA<br/>(Vite + TypeScript)"]
+    end
+
+    subgraph Vercel["Vercel — single project, one domain"]
+        Static["Static assets<br/>(React build)"]
+        subgraph Fn["Python serverless function<br/>api/index.py → app.main:app"]
+            direction TB
+            Auth["auth router"]
+            Proj["projects router"]
+            Prompt["prompts router"]
+            ChatR["chat router<br/>(blocking + SSE stream)"]
+            FilesR["files router"]
+        end
+    end
+
+    subgraph Ext["External services"]
+        DB[("Postgres<br/>Neon · SQLAlchemy")]
+        Gemini["Google Gemini API<br/>chat + Files"]
+    end
+
+    UI -->|"GET / — SPA shell"| Static
+    UI -->|"/api/* — relative, JWT bearer"| Fn
+    Auth --> DB
+    Proj --> DB
+    Prompt --> DB
+    ChatR --> DB
+    FilesR --> DB
+    ChatR -->|"generate_content_stream"| Gemini
+    FilesR -->|"files.upload"| Gemini
 ```
 
 Frontend and backend are deployed as a single Vercel project on one domain. The React build is
@@ -16,7 +43,73 @@ Keeping everything same-origin removes the need for CORS configuration or an exp
 URL in the frontend — it just calls `/api/...` regardless of environment, which also keeps local
 dev (via a Vite proxy) behaviorally identical to production.
 
+## Streaming chat flow
+
+The chat endpoint streams the model's reply token-by-token so the user sees output almost
+immediately instead of waiting for the whole response:
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant FE as React ChatPanel
+    participant API as FastAPI chat/stream
+    participant DB as Postgres
+    participant G as Gemini
+
+    U->>FE: Type message (+ optional file)
+    FE->>API: POST /chat/stream (JWT, message, file_ids)
+    API->>DB: Verify ownership + persist user message
+    API->>G: generate_content_stream(history, prompt, files)
+    loop Token by token
+        G-->>API: text chunk
+        API-->>FE: SSE "delta" event
+        FE-->>U: Append token to reply bubble
+    end
+    API->>DB: Persist full assistant message
+    API-->>FE: SSE "done" event (final message)
+```
+
 ## Data model
+
+```mermaid
+erDiagram
+    USER ||--o{ PROJECT : owns
+    PROJECT ||--o{ PROMPT : has
+    PROJECT ||--o{ MESSAGE : has
+    PROJECT ||--o{ PROJECT_FILE : has
+
+    USER {
+        int id PK
+        string email UK
+        string hashed_password
+        string name
+    }
+    PROJECT {
+        int id PK
+        int user_id FK
+        string name
+        string model
+    }
+    PROMPT {
+        int id PK
+        int project_id FK
+        text content
+        bool is_active
+    }
+    MESSAGE {
+        int id PK
+        int project_id FK
+        string role
+        text content
+        text attachments
+    }
+    PROJECT_FILE {
+        int id PK
+        int project_id FK
+        string filename
+        string gemini_file_uri
+    }
+```
 
 - **User** — email, hashed password (bcrypt), name.
 - **Project** — an "agent", owned by a user. Holds the model name to use.

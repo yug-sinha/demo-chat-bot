@@ -7,6 +7,27 @@ Stack: **React + Vite + TypeScript** (frontend), **FastAPI** (backend), **Postgr
 (storage), **JWT** (auth), **Google Gemini API** (LLM + file uploads). Deployed as a single Vercel
 project — frontend served statically, backend as Python serverless functions under `/api`.
 
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+    UI["React SPA<br/>(Vite + TS)"]
+    subgraph Vercel["Vercel — one domain"]
+        Static["Static assets"]
+        API["FastAPI serverless fn<br/>api/index.py → app.main:app"]
+    end
+    DB[("Postgres<br/>Neon")]
+    Gemini["Gemini API<br/>chat + Files"]
+
+    UI -->|"GET / — SPA"| Static
+    UI -->|"/api/* — JWT"| API
+    API --> DB
+    API -->|"chat stream + file upload"| Gemini
+```
+
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design write-up, including the streaming
+chat sequence diagram and the data-model ER diagram.
+
 ## Requirements coverage
 
 Built against the assignment brief; each requirement maps to a concrete part of the codebase:
@@ -30,7 +51,7 @@ Deliverables checklist from the brief:
 
 | Deliverable | Status |
 |---|---|
-| Source code in a GitHub repository | ⏳ Not yet pushed — code is complete locally, repo needs to be created and pushed |
+| Source code in a GitHub repository | ✅ [github.com/yug-sinha/demo-chat-bot](https://github.com/yug-sinha/demo-chat-bot) |
 | Instructions to run the application (README) | ✅ This file |
 | Brief architecture/design explanation | ✅ `ARCHITECTURE.md` |
 | Publicly hosted working demo | ⏳ Not yet deployed |
